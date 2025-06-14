@@ -1,0 +1,100 @@
+Available Models
+Last edited by hplytnikas 1 month ago
+Available models:
+
+OpenAI: all models
+Anthropic: all models
+Google: all models
+Groq: all models
+Our own server: llava:13b, mistral-nemo:12b, llama3.1:8b
+Complete list: All models
+
+Available Integrations:
+
+Continue
+Link to tutorial in wiki
+Cursor [Only chat]
+To add custom API (for chat) => Go to settings/models and add API key and base URL under OpenAI
+Work in progress:
+
+Codex [No custom API key support yet]
+Claude Code [Working on making it work with LiteLLM]
+Usage Example
+
+POST https://litellm.sph-prod.ethz.ch/chat/completions
+Content-Type: application/json
+Authorization: Bearer {{userKey}}
+
+{
+    "model": "mixtral-8x7b-32768",
+    "messages": [
+        {
+        "role": "user",
+        "content": "How is the weather in Zürich"
+        }
+    ]
+}
+Usage example in python (Using openai library, works out-of-the-box with LiteLLM models)
+
+Installation:
+
+pip install openai
+Simple code example:
+
+import openai # openai v1.0.0+
+
+client = openai.OpenAI(api_key="your-api-key",base_url="https://litellm.sph-prod.ethz.ch/v1") # set proxy to base_url
+# request sent to model set on litellm proxy, `litellm --model`
+response = client.chat.completions.create(model="claude-3-5-sonnet", messages = [
+    {
+        "role": "user",
+        "content": "this is a test request, write a short poem"
+    }
+])
+
+print(response) # print the whole response
+print(response.choices[0].message.content) # print the response from the model
+Response format
+
+ChatCompletion(
+    id='chatcmpl-fcd8c6ee-1787-4532-8fe7-c3b92c37e6db',
+    choices=[
+        Choice(
+            finish_reason='stop',
+            index=0,
+            logprobs=None,
+            message=ChatCompletionMessage(
+                content=(
+                    "Here's a short poem for you:\n\n"
+                    "Sunlight dancing through the trees,\n"
+                    "Gentle whispers in the breeze,\n"
+                    "Morning dew on grass so green,\n"
+                    "Nature's beauty rarely seen."
+                ),
+                refusal=None,
+                role='assistant',
+                annotations=None,
+                audio=None,
+                function_call=None,
+                tool_calls=None
+            )
+        )
+    ],
+    created=1745400929,
+    model='claude-3-5-sonnet-20241022',
+    object='chat.completion',
+    service_tier=None,
+    system_fingerprint=None,
+    usage=CompletionUsage(
+        completion_tokens=46,
+        prompt_tokens=17,
+        total_tokens=63,
+        completion_tokens_details=None,
+        prompt_tokens_details=PromptTokensDetails(
+            audio_tokens=None,
+            cached_tokens=0
+        ),
+        cache_creation_input_tokens=0,
+        cache_read_input_tokens=0
+    )
+)
