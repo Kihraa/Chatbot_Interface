@@ -9,6 +9,9 @@
 #include <QTextDocument>
 #include <QPaintEvent>
 #include <QApplication>
+#include <QUrl>
+#include <QPixmap>
+#include <QBuffer>
 #include <md4c-html.h>
 
 // Static callback function for md_html
@@ -22,8 +25,13 @@ static void processOutputCallback(const MD_CHAR* text, MD_SIZE size, void* userd
 MarkdownLatexLabel::MarkdownLatexLabel(QWidget *parent)
     : QLabel(parent)
 {
+    setMargin(10);
+    setStyleSheet("border: 1px black; background-color: white; color: black");
     setWordWrap(true);
     setTextFormat(Qt::RichText);
+    setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    setTextInteractionFlags(Qt::TextSelectableByMouse);
+
     setAlignment(Qt::AlignTop | Qt::AlignLeft);
 }
 
@@ -34,19 +42,11 @@ void MarkdownLatexLabel::setMarkdownLatexText(const QString &text)
     // Step 1: Convert Markdown to HTML
     QString htmlText = markdownToHtml(text);
 
-    // Step 2: Extract LaTeX expressions and replace with placeholders
+    // Step 2: Extract LaTeX expressions and replace with PNG images
     m_htmlText = extractLatexFromHtml(htmlText, m_latexExpressions);
 
-    // Step 3: Generate SVG for all LaTeX expressions
-    for (auto &expr : m_latexExpressions) {
-        expr.svgData = latexToSvg(expr.latex, expr.displayMode);
-    }
-
-    // Step 4: Set the HTML content to the label
+    // Step 3: Set the HTML content to the label
     setText(m_htmlText);
-
-    // Step 5: Update positions for LaTeX rendering
-    updateLatexPositions();
 }
 
 QString MarkdownLatexLabel::markdownToHtml(const QString &markdown)
@@ -114,143 +114,50 @@ QString MarkdownLatexLabel::extractLatexFromHtml(const QString &html, QList<Late
             }
         }
 
-        // Create expression entry
+        // Create expression entry and generate PNG
         LatexExpression expr;
         expr.latex = latexCode;
         expr.displayMode = isDisplayMode;
+
+        // Generate PNG for this LaTeX expression
+        QString pngBase64 = latexToPngBase64(latexCode, isDisplayMode);
+
+        QString imgTag;
+        if (!pngBase64.isEmpty()) {
+            // Create img tag with base64 encoded PNG
+            QString style = isDisplayMode ?
+                "display: block; margin: 10px auto;" :
+                "display: inline; vertical-align: middle;";
+
+            imgTag = QString("<img src=\"data:image/png;base64,%1\" style=\"%2\" alt=\"LaTeX: %3\" />")
+                    .arg(pngBase64)
+                    .arg(style)
+                    .arg(QString(latexCode).replace("\"", "&quot;"));
+        } else {
+            // Fallback to text if PNG generation failed
+            imgTag = QString("<span style=\"color: red; font-family: monospace;\">[LaTeX Error: %1]</span>")
+                    .arg(QString(latexCode).replace("\"", "&quot;"));
+        }
+
         expressions.append(expr);
 
-        // Replace with a placeholder span that we can find later
-        QString placeholder = QString("<span id=\"latex_%1\" style=\"color: transparent;\">%2</span>")
-                             .arg(expressionIndex)
-                             .arg(isDisplayMode ? "DISPLAY_MATH" : "INLINE_MATH");
-
-
-        result.replace(match.capturedStart() + offset, match.capturedLength(), placeholder);
-        offset += placeholder.length() - match.capturedLength();
+        // Replace the LaTeX expression with the img tag
+        result.replace(match.capturedStart() + offset, match.capturedLength(), imgTag);
+        offset += imgTag.length() - match.capturedLength();
         expressionIndex++;
     }
 
     return result;
 }
 
-void MarkdownLatexLabel::updateLatexPositions()
-{
-    // Get the label's font metrics once
-    QFontMetrics fm(this->font());
-    int lineHeight = fm.height();
-
-    for (int i = 0; i < m_latexExpressions.size(); ++i) {
-        double width, height, posX, posY;
-
-        // Get width & height of SVG (keep your existing code)
-        QRegularExpression widthRe(R"(width=['"]([0-9]*\.?[0-9]+)pt['"])");
-        QRegularExpression heightRe(R"(height=['"]([0-9]*\.?[0-9]+)pt['"])");
-        QRegularExpressionMatch wMatch = widthRe.match(m_latexExpressions[i].svgData);
-        QRegularExpressionMatch hMatch = heightRe.match(m_latexExpressions[i].svgData);
-
-        if (wMatch.hasMatch() && hMatch.hasMatch()) {
-            width = wMatch.captured(1).toDouble();
-            height = hMatch.captured(1).toDouble();
-        } else {
-            width = 100;
-            height = 20;
-        }
-
-        // Find the placeholder in the text
-        QString placeholderTag = QString("latex_%1").arg(i);
-        QString textBeforePlaceholder = extractTextBeforePlaceholder(this->text(), placeholderTag);
-
-        if (textBeforePlaceholder.isEmpty()) {
-            posX = 0;
-            posY = i * lineHeight;
-        } else {
-            // Calculate position using simplified line wrapping
-            calculatePositionFromText(textBeforePlaceholder, fm, this->width(), posX, posY);
-        }
-
-        qDebug() << "LaTeX" << i << "position: (" << posX << "," << posY << ")";
-
-        m_latexExpressions[i].boundingRect = QRect(posX, posY, width, height);
-    }
-}
-
-QString MarkdownLatexLabel::extractTextBeforePlaceholder(const QString &html, const QString &placeholderId)
-{
-    // Find the placeholder span
-    QString searchPattern = QString("id=\"%1\"").arg(placeholderId);
-    int placeholderPos = html.indexOf(searchPattern);
-
-    if (placeholderPos < 0) {
-        return QString();
-    }
-
-    // Extract everything before the placeholder and strip HTML tags
-    QString beforePlaceholder = html.left(placeholderPos);
-
-    // Simple HTML tag removal (you might want to use a more sophisticated approach)
-    QRegularExpression htmlTagRegex("<[^>]*>");
-    QString plainText = beforePlaceholder.remove(htmlTagRegex);
-
-    // Decode HTML entities
-    QTextDocument tempDoc;
-    tempDoc.setHtml(plainText);
-    return tempDoc.toPlainText();
-}
-
-void MarkdownLatexLabel::calculatePositionFromText(const QString &textBefore,
-                                                   const QFontMetrics &fm,
-                                                   int labelWidth,
-                                                   double &posX,
-                                                   double &posY)
-{
-    // Split text into words for simple word wrapping simulation
-    QStringList words = textBefore.split(QRegularExpression("\\s+"), Qt::SkipEmptyParts);
-
-    int currentLineWidth = 0;
-    int lineNumber = 0;
-
-    for (const QString &word : words) {
-        int wordWidth = fm.horizontalAdvance(word + " ");
-
-        // Check if word fits on current line
-        if (currentLineWidth + wordWidth > labelWidth && currentLineWidth > 0) {
-            // Move to next line
-            lineNumber++;
-            currentLineWidth = wordWidth;
-        } else {
-            currentLineWidth += wordWidth;
-        }
-    }
-
-    posX = currentLineWidth;
-    posY = lineNumber * fm.height() + fm.ascent();
-}
-
-void MarkdownLatexLabel::paintEvent(QPaintEvent *event)
-{
-    // First, paint the normal HTML content
-    QLabel::paintEvent(event);
-
-    // Then, paint the LaTeX expressions on top
-    QPainter painter(this);
-    painter.setRenderHint(QPainter::Antialiasing);
-
-    for (const auto &expr : m_latexExpressions) {
-        if (!expr.svgData.isEmpty()) {
-            QSvgRenderer renderer(expr.svgData.toUtf8());
-            renderer.render(&painter, expr.boundingRect);
-        }
-    }
-}
-
-QString MarkdownLatexLabel::latexToSvg(const QString &latex, bool displayMode)
+QString MarkdownLatexLabel::latexToPngBase64(const QString &latex, bool displayMode)
 {
     QString tempDir = QDir::tempPath();
     QString baseName = QString("latex_%1").arg(QDateTime::currentMSecsSinceEpoch());
     QString texFile = QString("%1/%2.tex").arg(tempDir, baseName);
-    QString svgFile = QString("%1/%2.svg").arg(tempDir, baseName);
+    QString pngFile = QString("%1/%2.png").arg(tempDir, baseName);
 
+    // Create LaTeX file
     QFile file(texFile);
     if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
         return QString();
@@ -260,6 +167,8 @@ QString MarkdownLatexLabel::latexToSvg(const QString &latex, bool displayMode)
     out << "\\documentclass[12pt]{article}\n";
     out << "\\usepackage{amsmath,amsfonts,amssymb}\n";
     out << "\\usepackage[active,tightpage]{preview}\n";
+    out << "\\usepackage{xcolor}\n";
+    out << "\\pagestyle{empty}\n";
 
     if (displayMode) {
         out << "\\PreviewEnvironment{displaymath}\n";
@@ -278,41 +187,73 @@ QString MarkdownLatexLabel::latexToSvg(const QString &latex, bool displayMode)
     out << "\\end{document}\n";
     file.close();
 
-    // Compile LaTeX -> DVI -> SVG
+    // Compile LaTeX -> DVI
     QProcess latexProcess;
     latexProcess.setWorkingDirectory(tempDir);
     latexProcess.start("latex", QStringList() << "-interaction=nonstopmode" << texFile);
-    latexProcess.waitForFinished();
+    latexProcess.waitForFinished(5000); // 5 second timeout
 
     if (latexProcess.exitCode() != 0) {
+        qDebug() << "LaTeX compilation failed:" << latexProcess.readAllStandardError();
+        cleanup(tempDir, baseName);
         return QString();
     }
 
+    // Convert DVI -> PNG using dvipng
     QString dviFile = QString("%1/%2.dvi").arg(tempDir, baseName);
-    QProcess dvisvgmProcess;
-    dvisvgmProcess.start("dvisvgm", QStringList() << "--no-fonts" << dviFile << "-o" << svgFile);
-    dvisvgmProcess.waitForFinished();
+    QProcess dvipngProcess;
+    QStringList dvipngArgs;
+    dvipngArgs << "-D" << "150"  // DPI for good quality
+               << "-T" << "tight"  // Tight bounding box
+               << "-bg" << "Transparent"  // Transparent background
+               << "-o" << pngFile
+               << dviFile;
 
-    if (dvisvgmProcess.exitCode() != 0) {
+    dvipngProcess.start("dvipng", dvipngArgs);
+    dvipngProcess.waitForFinished(5000); // 5 second timeout
+
+    if (dvipngProcess.exitCode() != 0) {
+        qDebug() << "dvipng conversion failed:" << dvipngProcess.readAllStandardError();
+        cleanup(tempDir, baseName);
         return QString();
     }
 
-    QFile svgFileHandle(svgFile);
-    if (svgFileHandle.open(QIODevice::ReadOnly)) {
-        QString svgContent = svgFileHandle.readAll();
+    // Read PNG file and convert to base64
+    QFile pngFileHandle(pngFile);
+    QString base64Data;
 
-        // Cleanup temp files
-        QFile::remove(texFile);
-        QFile::remove(dviFile);
-        QFile::remove(svgFile);
-        QFile::remove(QString("%1/%2.aux").arg(tempDir, baseName));
-        QFile::remove(QString("%1/%2.log").arg(tempDir, baseName));
-
-        return svgContent;
+    if (pngFileHandle.open(QIODevice::ReadOnly)) {
+        QByteArray pngData = pngFileHandle.readAll();
+        base64Data = pngData.toBase64();
     }
 
-    return QString();
+    // Cleanup temp files
+    cleanup(tempDir, baseName);
+
+    return base64Data;
 }
+
+void MarkdownLatexLabel::cleanup(const QString &tempDir, const QString &baseName)
+{
+    // Remove all temporary files
+    QStringList extensions = {"tex", "dvi", "png", "aux", "log"};
+    for (const QString &ext : extensions) {
+        QString fileName = QString("%1/%2.%3").arg(tempDir, baseName, ext);
+        QFile::remove(fileName);
+    }
+}
+
+void MarkdownLatexLabel::paintEvent(QPaintEvent *event)
+{
+    // Just paint the normal HTML content (which now includes PNG images)
+    QLabel::paintEvent(event);
+}
+
+// Remove these methods as they're no longer needed:
+void MarkdownLatexLabel::updateLatexPositions() { /* No longer needed */ }
+QString MarkdownLatexLabel::extractTextBeforePlaceholder(const QString &, const QString &) { return QString(); }
+void MarkdownLatexLabel::calculatePositionFromText(const QString &, const QFontMetrics &, int, double &, double &) { /* No longer needed */ }
+QString MarkdownLatexLabel::latexToSvg(const QString &, bool) { return QString(); } // Keep for compatibility but not used
 
 // LaTeXLabel Implementation (keeping for compatibility)
 LaTeXLabel::LaTeXLabel(QWidget *parent)

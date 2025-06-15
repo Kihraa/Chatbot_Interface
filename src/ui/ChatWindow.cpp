@@ -1,4 +1,5 @@
 #include "ChatWindow.h"
+#include "LaTeXLabel.h"
 #include <QLabel>
 #include <QTimer>
 #include <QHBoxLayout>
@@ -8,7 +9,7 @@
 #include <QPushButton>
 #include <QComboBox>
 
-#define defaultResponse "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum."
+#define defaultResponse "Lorem ipsum dolor sit $amet$, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum."
 
 
 
@@ -57,15 +58,31 @@ ChatWindow::ChatWindow(QWidget *parent) : QWidget(parent) {
 }
 
 void ChatWindow::addMessage(const QString &message, ChatBubble::BubbleType type) {
-    ChatBubble* bubble = new ChatBubble(message, type);
+    MarkdownLatexLabel* bubble = new MarkdownLatexLabel(this);
+    bubble->setMarkdownLatexText(message);
     QHBoxLayout* bubbleLayout = new QHBoxLayout;
 
     if (type == ChatBubble::Sent) {
         bubbleLayout->addStretch();  // Push to right
         bubbleLayout->addWidget(bubble);
+        bubble->setMaximumWidth(480); //account for margin
+        bubble->setStyleSheet(R"(
+                background-color: #0084ff;
+                color: white;
+                border-radius: 18px;
+                font-size: 25px;
+        )");
+
     } else {
         bubble->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+        bubble->setStyleSheet(R"(
+                background-color: #e4e6ea;
+                color: black;
+                border-radius: 18px;
+                font-size: 25px;
+        )");
         bubbleLayout->addWidget(bubble);
+
     }
 
     m_chatLayout->addLayout(bubbleLayout);

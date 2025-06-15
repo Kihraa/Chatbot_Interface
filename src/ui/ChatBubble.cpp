@@ -20,16 +20,16 @@ void ChatBubble::setupUI() {
     // Message text using the chat-optimized viewer
     LaTeXLabel* messageViewer = new LaTeXLabel(this);
     messageViewer->setContent(m_message);
+    messageViewer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 
     layout->addWidget(messageViewer);
 
     // Set maximum width so long messages wrap
     if(m_type == BubbleType::Sent) {
-        setMaximumWidth(300);
-        messageViewer->setMaximumWidth(280); // Account for margins
+        setMaximumWidth(500);
+        messageViewer->setMaximumWidth(480); // Account for margins
     } else {
-        setMaximumWidth(500); // Received messages can be wider
-        messageViewer->setMaximumWidth(480);
+
     }
 
     // Allow the bubble to grow with content
