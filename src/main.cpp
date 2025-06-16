@@ -59,7 +59,7 @@ int main(int argc, char* argv[]){
     window.setCentralWidget(central);
 
 
-    window.resize(1920,1080);
+    window.resize(3840,2160);
     window.show();
 
     return app.exec();

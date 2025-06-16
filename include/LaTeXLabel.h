@@ -25,7 +25,7 @@ private:
         QRect boundingRect;
         QString svgData;
     };
-    QString latexToPngBase64(const QString &latex, bool displayMode);
+    QString latexToPngBase64(const QString &latex, bool displayMode, int& height, int& width);
     void cleanup(const QString &tempDir, const QString &baseName);
     QString m_originalText;
     QString m_htmlText;

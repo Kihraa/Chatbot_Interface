@@ -14,6 +14,8 @@
 #include <QBuffer>
 #include <md4c-html.h>
 
+int fontSize=25;
+
 // Static callback function for md_html
 static void processOutputCallback(const MD_CHAR* text, MD_SIZE size, void* userdata)
 {
@@ -26,13 +28,14 @@ MarkdownLatexLabel::MarkdownLatexLabel(QWidget *parent)
     : QLabel(parent)
 {
     setMargin(10);
-    setStyleSheet("border: 1px black; background-color: white; color: black");
+    setStyleSheet("border: 1px black; background-color: white; color: black;");
     setWordWrap(true);
     setTextFormat(Qt::RichText);
     setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     setTextInteractionFlags(Qt::TextSelectableByMouse);
 
     setAlignment(Qt::AlignTop | Qt::AlignLeft);
+
 }
 
 void MarkdownLatexLabel::setMarkdownLatexText(const QString &text)
@@ -45,9 +48,13 @@ void MarkdownLatexLabel::setMarkdownLatexText(const QString &text)
     // Step 2: Extract LaTeX expressions and replace with PNG images
     m_htmlText = extractLatexFromHtml(htmlText, m_latexExpressions);
 
-    // Step 3: Set the HTML content to the label
+    // Step 3: Wrap content with font size styling
+    m_htmlText = QString("<div style=\"font-size: %1px;\">%2</div>").arg(fontSize).arg(m_htmlText);
+
+    // Step 4: Set the HTML content to the label
     setText(m_htmlText);
 }
+
 
 QString MarkdownLatexLabel::markdownToHtml(const QString &markdown)
 {
@@ -120,24 +127,30 @@ QString MarkdownLatexLabel::extractLatexFromHtml(const QString &html, QList<Late
         expr.displayMode = isDisplayMode;
 
         // Generate PNG for this LaTeX expression
-        QString pngBase64 = latexToPngBase64(latexCode, isDisplayMode);
+        int height,width;
 
+        QString pngBase64 = latexToPngBase64(latexCode, isDisplayMode,height,width);
         QString imgTag;
+        int inlineHeight=100;
         if (!pngBase64.isEmpty()) {
-            // Create img tag with base64 encoded PNG
-            QString style = isDisplayMode ?
-                "display: block; margin: 10px auto;" :
-                "display: inline; vertical-align: middle;";
+            QString style;
+            if (isDisplayMode) {
+                // Display math: left-aligned with size control
+                style = QString("display: block; margin: 10px; text-align: left; "
+                       "max-width: 100%; max-height: %2; "
+                       "object-fit: contain;").arg(inlineHeight);
+            } else { // inline
+                style = QString("display: inline; vertical-align: middle; "
+                       "max-width: %1; max-height: %2px; "
+                       "object-fit: contain;").arg(width*(fontSize/(double)height)).arg(fontSize);
+            }
 
             imgTag = QString("<img src=\"data:image/png;base64,%1\" style=\"%2\" alt=\"LaTeX: %3\" />")
                     .arg(pngBase64)
                     .arg(style)
                     .arg(QString(latexCode).replace("\"", "&quot;"));
-        } else {
-            // Fallback to text if PNG generation failed
-            imgTag = QString("<span style=\"color: red; font-family: monospace;\">[LaTeX Error: %1]</span>")
-                    .arg(QString(latexCode).replace("\"", "&quot;"));
         }
+
 
         expressions.append(expr);
 
@@ -150,7 +163,7 @@ QString MarkdownLatexLabel::extractLatexFromHtml(const QString &html, QList<Late
     return result;
 }
 
-QString MarkdownLatexLabel::latexToPngBase64(const QString &latex, bool displayMode)
+QString MarkdownLatexLabel::latexToPngBase64(const QString &latex, bool displayMode, int& height, int& width)
 {
     QString tempDir = QDir::tempPath();
     QString baseName = QString("latex_%1").arg(QDateTime::currentMSecsSinceEpoch());
@@ -187,11 +200,12 @@ QString MarkdownLatexLabel::latexToPngBase64(const QString &latex, bool displayM
     out << "\\end{document}\n";
     file.close();
 
+
     // Compile LaTeX -> DVI
     QProcess latexProcess;
     latexProcess.setWorkingDirectory(tempDir);
     latexProcess.start("latex", QStringList() << "-interaction=nonstopmode" << texFile);
-    latexProcess.waitForFinished(5000); // 5 second timeout
+    latexProcess.waitForFinished(5000);
 
     if (latexProcess.exitCode() != 0) {
         qDebug() << "LaTeX compilation failed:" << latexProcess.readAllStandardError();
@@ -199,23 +213,40 @@ QString MarkdownLatexLabel::latexToPngBase64(const QString &latex, bool displayM
         return QString();
     }
 
-    // Convert DVI -> PNG using dvipng
+    // Convert DVI -> PNG using dvipng with verbose output
     QString dviFile = QString("%1/%2.dvi").arg(tempDir, baseName);
     QProcess dvipngProcess;
     QStringList dvipngArgs;
-    dvipngArgs << "-D" << "150"  // DPI for good quality
-               << "-T" << "tight"  // Tight bounding box
-               << "-bg" << "Transparent"  // Transparent background
+    dvipngArgs << "-D" << "300"
+               << "-T" << "tight"
+               << "-bg" << "Transparent"
+               << "-Q" << "5"
+               << "--height"
+               << "--width"
                << "-o" << pngFile
                << dviFile;
 
     dvipngProcess.start("dvipng", dvipngArgs);
-    dvipngProcess.waitForFinished(5000); // 5 second timeout
+    dvipngProcess.waitForFinished(5000);
 
     if (dvipngProcess.exitCode() != 0) {
         qDebug() << "dvipng conversion failed:" << dvipngProcess.readAllStandardError();
         cleanup(tempDir, baseName);
         return QString();
+    }
+
+    // Parse dvipng output to get dimensions
+    QString dvipngOutput = dvipngProcess.readAllStandardOutput();
+
+
+
+    // dvipng outputs something like: "This is dvipng 1.17 ... [1 depth=0 height=13 width=42]"
+    QRegularExpression dimRegex(R"(\[1.*?height=(\d+).*?width=(\d+)\])");
+    QRegularExpressionMatch dimMatch = dimRegex.match(dvipngOutput);
+
+    if (dimMatch.hasMatch()) {
+        height = dimMatch.captured(1).toInt();
+        width = dimMatch.captured(2).toInt();
     }
 
     // Read PNG file and convert to base64
@@ -233,6 +264,7 @@ QString MarkdownLatexLabel::latexToPngBase64(const QString &latex, bool displayM
     return base64Data;
 }
 
+
 void MarkdownLatexLabel::cleanup(const QString &tempDir, const QString &baseName)
 {
     // Remove all temporary files
@@ -248,12 +280,6 @@ void MarkdownLatexLabel::paintEvent(QPaintEvent *event)
     // Just paint the normal HTML content (which now includes PNG images)
     QLabel::paintEvent(event);
 }
-
-// Remove these methods as they're no longer needed:
-void MarkdownLatexLabel::updateLatexPositions() { /* No longer needed */ }
-QString MarkdownLatexLabel::extractTextBeforePlaceholder(const QString &, const QString &) { return QString(); }
-void MarkdownLatexLabel::calculatePositionFromText(const QString &, const QFontMetrics &, int, double &, double &) { /* No longer needed */ }
-QString MarkdownLatexLabel::latexToSvg(const QString &, bool) { return QString(); } // Keep for compatibility but not used
 
 // LaTeXLabel Implementation (keeping for compatibility)
 LaTeXLabel::LaTeXLabel(QWidget *parent)

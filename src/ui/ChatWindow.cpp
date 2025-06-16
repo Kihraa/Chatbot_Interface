@@ -9,9 +9,39 @@
 #include <QPushButton>
 #include <QComboBox>
 
-#define defaultResponse "Lorem ipsum dolor sit $amet$, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum."
 
+static QString defaultResponse =R"(Here's a detailed explanation of continuity of functions using only inline
+LaTeX:
 
+A function $f$ defined on an interval $I = [a,b]$ is said to be
+**continuous** on $I$ if for every point $x_0 \in I$, the following
+conditions are satisfied:
+
+1.  $\displaystyle{\lim_{x \to x_0} f(x)}$ exists.
+2.  $\displaystyle{\lim_{x \to x_0} f(x) = f(x_0)}.$
+$$x_0 \in I$$
+A function can be discontinuous in various ways, including:
+
+*   **Jump Discontinuity**: When the left and right limits exist but are
+unequal, i.e., $\displaystyle{\lim_{x \to c^-} f(x) \neq \lim_{x \to c^+}
+f(x)}.$
+*   **Infinite Discontinuity**: If either the left or right limit (or
+both) is infinite at a point $c$, i.e., $\displaystyle{\lim_{x \to c^-}
+f(x) = \pm\infty}$ or $\displaystyle{\lim_{x \to c^+} f(x) = \pm\infty}.$
+*   **Removable Discontinuity**: When the limit exists at a point $c$ but
+equals the function value at that point, i.e., $\displaystyle{\lim_{x \to
+c^-} f(x) = \lim_{x \to c^+} f(x) = f(c)}.$
+
+A function $f$ is said to be **continuous** if it has no discontinuities
+on its entire domain. In other words, for every point in the domain of
+$f$, both the left and right limits exist and are equal to the function
+value at that point.
+
+Note: The inline LaTeX syntax uses backslashes (`\`) to escape special
+characters, and surrounds math expressions with dollar signs (`$`). For
+example, `$\displaystyle{\lim_{x \to x_0} f(x)}$` would render as
+$\displaystyle{\lim_{x \to x_0} f(x)}$.
+)";
 
 ChatWindow::ChatWindow(QWidget *parent) : QWidget(parent) {
     QVBoxLayout* mainLayout = new QVBoxLayout(this);
