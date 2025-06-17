@@ -11,7 +11,7 @@ set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTORCC ON)
 
 find_package(MD4C CONFIG REQUIRED)
-find_package(Qt6 REQUIRED COMPONENTS Widgets Svg SvgWidgets)
+find_package(Qt6 REQUIRED COMPONENTS Widgets Network)
 
 include_directories(${Qt6Core_INCLUDE_DIRS} ${Qt6Gui_INCLUDE_DIRS})
 include_directories(${PROJECT_SOURCE_DIR}/include)
@@ -24,8 +24,7 @@ file(GLOB_RECURSE HEADERS "include/*.h")
 add_executable(chat ${SOURCES} ${HEADERS})
 target_link_libraries(chat PRIVATE
     Qt6::Widgets
-    Qt6::Svg
-    Qt6::SvgWidgets
+    Qt6::Network
     md4c::md4c
     md4c::md4c-html
 )

@@ -1,12 +1,9 @@
 #include <QApplication>
 #include <QMainWindow>
-#include <QLabel>
 #include <QSplitter>
 #include <QListWidget>
-#include <QTextEdit>
 #include <QVBoxLayout>
 #include "ChatWindow.h"
-#include "ChatBubble.h"
 
 int main(int argc, char* argv[]){
     QApplication app(argc, argv);
@@ -59,7 +56,7 @@ int main(int argc, char* argv[]){
     window.setCentralWidget(central);
 
 
-    window.resize(3840,2160);
+    window.resize(1920,1080);
     window.show();
 
     return app.exec();

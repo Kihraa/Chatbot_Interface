@@ -1,9 +1,9 @@
 # cmake
-
+.ropeproject
 .cache/clangd/index
 build
 index
-
+api_key.txt
 # Prerequisites
 *.d
 

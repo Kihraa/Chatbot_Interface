@@ -1,47 +1,20 @@
 #include "ChatWindow.h"
 #include "LaTeXLabel.h"
-#include <QLabel>
-#include <QTimer>
 #include <QHBoxLayout>
 #include <QPaintEvent>
 #include <QPainter>
 #include <QScrollBar>
 #include <QPushButton>
 #include <QComboBox>
+#include <QJsonArray>
+#include <QJsonObject>
+#include <QNetworkRequest>
+#include <QNetworkReply>
+#include <QJsonDocument>
+#include <QFile>
+#include <QTimer>
 
-
-static QString defaultResponse =R"(Here's a detailed explanation of continuity of functions using only inline
-LaTeX:
-
-A function $f$ defined on an interval $I = [a,b]$ is said to be
-**continuous** on $I$ if for every point $x_0 \in I$, the following
-conditions are satisfied:
-
-1.  $\displaystyle{\lim_{x \to x_0} f(x)}$ exists.
-2.  $\displaystyle{\lim_{x \to x_0} f(x) = f(x_0)}.$
-$$x_0 \in I$$
-A function can be discontinuous in various ways, including:
-
-*   **Jump Discontinuity**: When the left and right limits exist but are
-unequal, i.e., $\displaystyle{\lim_{x \to c^-} f(x) \neq \lim_{x \to c^+}
-f(x)}.$
-*   **Infinite Discontinuity**: If either the left or right limit (or
-both) is infinite at a point $c$, i.e., $\displaystyle{\lim_{x \to c^-}
-f(x) = \pm\infty}$ or $\displaystyle{\lim_{x \to c^+} f(x) = \pm\infty}.$
-*   **Removable Discontinuity**: When the limit exists at a point $c$ but
-equals the function value at that point, i.e., $\displaystyle{\lim_{x \to
-c^-} f(x) = \lim_{x \to c^+} f(x) = f(c)}.$
-
-A function $f$ is said to be **continuous** if it has no discontinuities
-on its entire domain. In other words, for every point in the domain of
-$f$, both the left and right limits exist and are equal to the function
-value at that point.
-
-Note: The inline LaTeX syntax uses backslashes (`\`) to escape special
-characters, and surrounds math expressions with dollar signs (`$`). For
-example, `$\displaystyle{\lim_{x \to x_0} f(x)}$` would render as
-$\displaystyle{\lim_{x \to x_0} f(x)}$.
-)";
+QJsonArray context;
 
 ChatWindow::ChatWindow(QWidget *parent) : QWidget(parent) {
     QVBoxLayout* mainLayout = new QVBoxLayout(this);
@@ -50,6 +23,7 @@ ChatWindow::ChatWindow(QWidget *parent) : QWidget(parent) {
     QWidget* headerWidget = new QWidget;
     QHBoxLayout* headerLayout = new QHBoxLayout(headerWidget);
     QComboBox* modelSelector = new QComboBox(this);
+    //placeholder models
     modelSelector->addItem("GPT-4 Turbo", "openai/gpt-4-turbo");
     modelSelector->addItem("Claude 3 Sonnet", "anthropic/claude-3-sonnet");
     modelSelector->addItem("Mistral 7B", "mistral/mistral-7b");
@@ -63,7 +37,7 @@ ChatWindow::ChatWindow(QWidget *parent) : QWidget(parent) {
     QWidget* chatWidget = new QWidget;
     m_chatLayout = new QVBoxLayout(chatWidget);
 
-    // Important: Add stretch at the end to push messages to top
+    //stretch at the end to push messages to top
     m_chatLayout->addStretch();
 
     m_scrollArea->setWidget(chatWidget);
@@ -96,13 +70,13 @@ void ChatWindow::addMessage(const QString &message, ChatBubble::BubbleType type)
         bubbleLayout->addStretch();  // Push to right
         bubbleLayout->addWidget(bubble);
         bubble->setMaximumWidth(480); //account for margin
+        bubble->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
         bubble->setStyleSheet(R"(
                 background-color: #0084ff;
                 color: white;
                 border-radius: 18px;
                 font-size: 25px;
         )");
-
     } else {
         bubble->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
         bubble->setStyleSheet(R"(
@@ -127,13 +101,68 @@ void ChatWindow::addMessage(const QString &message, ChatBubble::BubbleType type)
 
 void ChatWindow::sendMessage() {
     QString message = m_messageInput->text().trimmed();
-    if (!message.isEmpty()) {
-        addMessage(message, ChatBubble::Sent);
-        m_messageInput->clear();
+    if (message.isEmpty()) return;
 
-        // Simulate received message after a delay
-        QTimer::singleShot(0, this, [this]() {
-            addMessage(defaultResponse, ChatBubble::Received);
-        });
-    }
+    //render message sent
+    addMessage(message, ChatBubble::Sent);
+    m_messageInput->clear();
+
+    //add message to context
+    QJsonObject userMsg;
+    userMsg["role"]    = "user";
+    userMsg["content"] = message;
+    context.append(userMsg);
+    QFile key_file("../api_key.txt");
+    key_file.open(QIODeviceBase::ReadOnly);
+    QString userkey=key_file.readLine();
+    key_file.close();
+    userkey.chop(1); //removes \n
+
+
+    QNetworkAccessManager* manager = new QNetworkAccessManager(this);
+    QNetworkRequest request;
+    request.setUrl(QUrl("https://litellm.sph-prod.ethz.ch/chat/completions"));
+    request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+    request.setRawHeader("Authorization", QString("Bearer %1").arg(userkey).toUtf8());
+
+    QJsonObject requestBody;
+    requestBody["model"] = "azure/gpt-4o-mini";
+    requestBody["messages"] = context;
+
+    QJsonDocument doc(requestBody);
+    QByteArray data = doc.toJson();
+
+    QNetworkReply* reply = manager->post(request, data);
+    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+        QString response;
+
+        if (reply->error() == QNetworkReply::NoError) {
+            QByteArray responseData = reply->readAll();
+            QJsonDocument responseDoc = QJsonDocument::fromJson(responseData);
+            QJsonObject responseObj = responseDoc.object();
+
+            QJsonArray choices = responseObj["choices"].toArray();
+            if (!choices.isEmpty()) {
+                QJsonObject firstChoice = choices[0].toObject();
+                QJsonObject message = firstChoice["message"].toObject();
+                response = message["content"].toString();
+
+                QJsonObject assistantMsg;
+                assistantMsg["role"] = "assistant";
+                assistantMsg["content"] = response;
+                context.append(assistantMsg);
+            } else {
+                response = "Sorry, I couldn't generate a response.";
+            }
+        } else {
+            response = QString("Error: %1").arg(reply->errorString());
+        }
+
+        // display response
+        addMessage(response, ChatBubble::Received);
+
+        reply->deleteLater();
+
+    });
+
 }

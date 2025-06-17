@@ -3,8 +3,7 @@
 #include <QLabel>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
-#include <QPaintEvent>
-#include <QPainter>
+
 
 ChatBubble::ChatBubble(const QString &message, BubbleType type, QWidget *parent)
     : QWidget(parent), m_message(message), m_type(type) {
@@ -17,14 +16,12 @@ void ChatBubble::setupUI() {
     layout->setSpacing(0);
     layout->setContentsMargins(10, 8, 10, 8);
 
-    // Message text using the chat-optimized viewer
-    LaTeXLabel* messageViewer = new LaTeXLabel(this);
-    messageViewer->setContent(m_message);
+    MarkdownLatexLabel* messageViewer = new MarkdownLatexLabel(this);
+    messageViewer->setMarkdownLatexText(m_message);
     messageViewer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 
     layout->addWidget(messageViewer);
 
-    // Set maximum width so long messages wrap
     if(m_type == BubbleType::Sent) {
         setMaximumWidth(500);
         messageViewer->setMaximumWidth(480); // Account for margins
@@ -32,7 +29,6 @@ void ChatBubble::setupUI() {
 
     }
 
-    // Allow the bubble to grow with content
     setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Minimum);
 }
 

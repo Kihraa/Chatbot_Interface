@@ -1,17 +1,8 @@
 #include "LaTeXLabel.h"
 #include <QRegularExpression>
-#include <QFontMetrics>
 #include <QDir>
 #include <QFile>
-#include <QTextStream>
 #include <QProcess>
-#include <QDateTime>
-#include <QTextDocument>
-#include <QPaintEvent>
-#include <QApplication>
-#include <QUrl>
-#include <QPixmap>
-#include <QBuffer>
 #include <md4c-html.h>
 
 int fontSize=25;
@@ -31,7 +22,7 @@ MarkdownLatexLabel::MarkdownLatexLabel(QWidget *parent)
     setStyleSheet("border: 1px black; background-color: white; color: black;");
     setWordWrap(true);
     setTextFormat(Qt::RichText);
-    setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    setSizePolicy(QSizePolicy::Expanding, QSizePolicy::MinimumExpanding);
     setTextInteractionFlags(Qt::TextSelectableByMouse);
 
     setAlignment(Qt::AlignTop | Qt::AlignLeft);
@@ -273,23 +264,4 @@ void MarkdownLatexLabel::cleanup(const QString &tempDir, const QString &baseName
         QString fileName = QString("%1/%2.%3").arg(tempDir, baseName, ext);
         QFile::remove(fileName);
     }
-}
-
-void MarkdownLatexLabel::paintEvent(QPaintEvent *event)
-{
-    // Just paint the normal HTML content (which now includes PNG images)
-    QLabel::paintEvent(event);
-}
-
-// LaTeXLabel Implementation (keeping for compatibility)
-LaTeXLabel::LaTeXLabel(QWidget *parent)
-    : QTextBrowser(parent)
-{
-    m_label = new MarkdownLatexLabel(this);
-    // You might want to adjust the layout here
-}
-
-void LaTeXLabel::setContent(const QString &markdownLatexText)
-{
-    m_label->setMarkdownLatexText(markdownLatexText);
 }

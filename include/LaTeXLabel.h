@@ -1,10 +1,6 @@
-#ifndef LaTeXLabel_H
-#define LaTeXLabel_H
+#pragma once
 
 #include <QLabel>
-#include <QTextBrowser>
-#include <QSvgRenderer>
-#include <QPainter>
 #include <QRegularExpression>
 
 class MarkdownLatexLabel : public QLabel
@@ -15,8 +11,6 @@ public:
     explicit MarkdownLatexLabel(QWidget *parent = nullptr);
     void setMarkdownLatexText(const QString &text);
 
-protected:
-    void paintEvent(QPaintEvent *event) override;
 
 private:
     struct LatexExpression {
@@ -38,17 +32,3 @@ private:
     void calculatePositionFromText(const QString &textBefore, const QFontMetrics &fm, int labelWidth, double &posX, double &posY);
     QString extractTextBeforePlaceholder(const QString &html, const QString &placeholderId);
 };
-
-class LaTeXLabel : public QTextBrowser
-{
-    Q_OBJECT
-
-public:
-    explicit LaTeXLabel(QWidget *parent = nullptr);
-    void setContent(const QString &markdownLatexText);
-
-private:
-    MarkdownLatexLabel *m_label;
-};
-
-#endif // LaTeXLabel_H
