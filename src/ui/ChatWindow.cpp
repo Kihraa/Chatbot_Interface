@@ -22,14 +22,12 @@ ChatWindow::ChatWindow(QWidget *parent) : QWidget(parent) {
 
     QWidget* headerWidget = new QWidget;
     QHBoxLayout* headerLayout = new QHBoxLayout(headerWidget);
-    QComboBox* modelSelector = new QComboBox(this);
+    m_modelSelector = new QComboBox(this);
     //placeholder models
-    modelSelector->addItem("GPT-4 Turbo", "openai/gpt-4-turbo");
-    modelSelector->addItem("Claude 3 Sonnet", "anthropic/claude-3-sonnet");
-    modelSelector->addItem("Mistral 7B", "mistral/mistral-7b");
-    modelSelector->addItem("Gemini 1.5 Pro", "google/gemini-1.5-pro");
-    mainLayout->addWidget(modelSelector);
-    modelSelector->setMaximumWidth(250);
+    m_modelSelector->addItem("Claude Sonnet 4", "anthropic/claude-sonnet-4-20250514");
+    m_modelSelector->addItem("Gemini 2.5 Pro", "gemini/gemini-2.5-pro-preview-05-06");
+    mainLayout->addWidget(m_modelSelector);
+    m_modelSelector->setMaximumWidth(250);
 
 
     // Scrollable chat area
@@ -126,7 +124,7 @@ void ChatWindow::sendMessage() {
     request.setRawHeader("Authorization", QString("Bearer %1").arg(userkey).toUtf8());
 
     QJsonObject requestBody;
-    requestBody["model"] = "azure/gpt-4o-mini";
+    requestBody["model"] =m_modelSelector->currentData().toString();
     requestBody["messages"] = context;
 
     QJsonDocument doc(requestBody);

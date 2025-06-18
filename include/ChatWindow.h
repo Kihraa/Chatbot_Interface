@@ -4,6 +4,7 @@
 #include <QScrollArea>
 #include <QVBoxLayout>
 #include <QLineEdit>
+#include <QComboBox>
 #include "ChatBubble.h"
 
 class ChatWindow : public QWidget {
@@ -19,6 +20,7 @@ private:
     QScrollArea* m_scrollArea;    // Provides scrolling capability
     QVBoxLayout* m_chatLayout;    // Main layout where messages are added
     QLineEdit* m_messageInput;    // Text input field
+    QComboBox* m_modelSelector;
 
 private slots:
     void sendMessage();
