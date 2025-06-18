@@ -5,16 +5,16 @@
 #include <QVBoxLayout>
 #include <QLineEdit>
 #include <QComboBox>
-#include "ChatBubble.h"
 
 class ChatWindow : public QWidget {
     Q_OBJECT
 
 public:
     ChatWindow(QWidget* parent = nullptr);
+    enum BubbleType { Sent, Received };
 
 public slots:
-    void addMessage(const QString &message, ChatBubble::BubbleType type);
+    void addMessage(const QString &message, BubbleType type);
 
 private:
     QScrollArea* m_scrollArea;    // Provides scrolling capability

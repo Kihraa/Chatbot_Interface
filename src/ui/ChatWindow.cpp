@@ -59,12 +59,12 @@ ChatWindow::ChatWindow(QWidget *parent) : QWidget(parent) {
     mainLayout->addLayout(inputLayout);
 }
 
-void ChatWindow::addMessage(const QString &message, ChatBubble::BubbleType type) {
+void ChatWindow::addMessage(const QString &message, BubbleType type) {
     MarkdownLatexLabel* bubble = new MarkdownLatexLabel(this);
     bubble->setMarkdownLatexText(message);
     QHBoxLayout* bubbleLayout = new QHBoxLayout;
 
-    if (type == ChatBubble::Sent) {
+    if (type == Sent) {
         bubbleLayout->addStretch();  // Push to right
         bubbleLayout->addWidget(bubble);
         bubble->setMaximumWidth(480); //account for margin
@@ -102,7 +102,7 @@ void ChatWindow::sendMessage() {
     if (message.isEmpty()) return;
 
     //render message sent
-    addMessage(message, ChatBubble::Sent);
+    addMessage(message, Sent);
     m_messageInput->clear();
 
     //add message to context
@@ -157,7 +157,7 @@ void ChatWindow::sendMessage() {
         }
 
         // display response
-        addMessage(response, ChatBubble::Received);
+        addMessage(response, Received);
 
         reply->deleteLater();
 
