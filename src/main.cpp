@@ -9,7 +9,6 @@ int main(int argc, char* argv[]){
     QApplication app(argc, argv);
     QMainWindow window;
     window.setWindowTitle("Chat");
-    QWidget* central = new QWidget;
     QSplitter* splitter = new QSplitter(Qt::Horizontal);
 
     QListWidget* leftPanel = new QListWidget();
@@ -52,8 +51,8 @@ int main(int argc, char* argv[]){
     QVBoxLayout* layout = new QVBoxLayout;
     layout->addWidget(splitter);
     layout->setContentsMargins(0, 0, 0, 0);
-    central->setLayout(layout);
-    window.setCentralWidget(central);
+    window.setLayout(layout);
+    window.setCentralWidget(splitter);
 
 
     window.resize(1920,1080);
