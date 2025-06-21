@@ -13,10 +13,10 @@
 #include <QJsonDocument>
 #include <QFile>
 #include <QTimer>
+#include <QPushButton>
 
-QJsonArray context;
 
-ChatWindow::ChatWindow(QWidget *parent) : QWidget(parent) {
+ChatWindow::ChatWindow(ChatManager* manager,QWidget *parent) : QWidget(parent), manager(manager) {
     QVBoxLayout* mainLayout = new QVBoxLayout(this);
     //model selector
 
@@ -24,11 +24,16 @@ ChatWindow::ChatWindow(QWidget *parent) : QWidget(parent) {
     QHBoxLayout* headerLayout = new QHBoxLayout(headerWidget);
     m_modelSelector = new QComboBox(this);
     //placeholder models
+    m_modelSelector->addItem("LLava 13B", "llava:13b");
     m_modelSelector->addItem("Claude Sonnet 4", "anthropic/claude-sonnet-4-20250514");
     m_modelSelector->addItem("Gemini 2.5 Pro", "gemini/gemini-2.5-pro-preview-05-06");
-    mainLayout->addWidget(m_modelSelector);
-    m_modelSelector->setMaximumWidth(250);
 
+    m_modelSelector->setMaximumWidth(250);
+    headerLayout->addWidget(m_modelSelector);
+    QPushButton* newChatButton = new QPushButton("New Chat");
+    newChatButton->setMaximumWidth(100);
+    headerLayout->addWidget(newChatButton);
+    mainLayout->addWidget(headerWidget);
 
     // Scrollable chat area
     m_scrollArea = new QScrollArea;
@@ -49,6 +54,7 @@ ChatWindow::ChatWindow(QWidget *parent) : QWidget(parent) {
     m_messageInput = new QLineEdit;
     QPushButton* sendButton = new QPushButton("Send");
 
+    connect(newChatButton, &QPushButton::clicked, this, &ChatWindow::newChat);
     connect(sendButton, &QPushButton::clicked, this, &ChatWindow::sendMessage);
     connect(m_messageInput, &QLineEdit::returnPressed, this, &ChatWindow::sendMessage);
 
@@ -87,7 +93,10 @@ void ChatWindow::addMessage(const QString &message, BubbleType type) {
 
     }
 
-    m_chatLayout->addLayout(bubbleLayout);
+    int insertIndex = m_chatLayout->count() - 1; // Before stretch
+    m_chatLayout->insertLayout(insertIndex, bubbleLayout);
+
+    m_messageLayouts.append(bubbleLayout);
 
     // Auto-scroll to show newest message
     QTimer::singleShot(0, this, [this]() {
@@ -100,7 +109,7 @@ void ChatWindow::addMessage(const QString &message, BubbleType type) {
 void ChatWindow::sendMessage() {
     QString message = m_messageInput->text().trimmed();
     if (message.isEmpty()) return;
-
+    metadata.lastModified=QDateTime::currentDateTime();
     //render message sent
     addMessage(message, Sent);
     m_messageInput->clear();
@@ -163,4 +172,57 @@ void ChatWindow::sendMessage() {
 
     });
 
+}
+
+void ChatWindow::fillChat(QJsonArray& messages){
+    for(const QJsonValue& elem : messages){
+        if(elem["role"].toString()=="user"){
+            addMessage(elem["content"].toString(),BubbleType::Sent);
+        }
+        else {
+            addMessage(elem["content"].toString(),BubbleType::Received);
+        }
+    }
+    context=messages;
+}
+
+void ChatWindow::clearAndDisplayChat(ChatMetadata chat){
+    if(context.size()!=0)
+        manager->saveChatToDisk(metadata, context);
+    metadata=chat;
+    clearMessages();
+    QJsonArray newMessages = manager->getChatFromDisk(chat.id);
+    fillChat(newMessages);
+}
+
+void ChatWindow::clearMessages() {
+    // Remove all tracked message layouts
+    for (QLayout* messageLayout : m_messageLayouts) {
+        // Remove widgets from the layout
+        QLayoutItem* item;
+        while ((item = messageLayout->takeAt(0)) != nullptr) {
+            if (QWidget* widget = item->widget()) {
+                widget->setParent(nullptr);
+                widget->deleteLater();
+            }
+            delete item;
+        }
+
+        // Remove layout from parent and delete it
+        m_chatLayout->removeItem(messageLayout);
+        messageLayout->deleteLater();
+    }
+
+    m_messageLayouts.clear();
+}
+
+
+
+void ChatWindow::newChat(){
+    if(context.size()!=0){
+        manager->saveChatToDisk(metadata, context);
+    }
+    clearMessages();
+    metadata=manager->addNewChatToSideBar();
+    context=QJsonArray();//reset context
 }

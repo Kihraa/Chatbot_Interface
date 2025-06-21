@@ -1,0 +1,8 @@
+add seperate thread that periodically saves chat to json
+image support
+api key not via file
+Chat naming via ai
+latex image caching (fixed size maybe)
+wrap in .app
+app icon
+ollama support

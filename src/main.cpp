@@ -5,6 +5,7 @@
 #include <QVBoxLayout>
 #include "ChatWindow.h"
 
+
 int main(int argc, char* argv[]){
     QApplication app(argc, argv);
     QMainWindow window;
@@ -37,10 +38,25 @@ int main(int argc, char* argv[]){
                 background-color: palette(highlight);
             }
         )");
-    leftPanel->addItem("Chat 1");
-    leftPanel->addItem("Chat 2");
 
-    ChatWindow* rightPanel = new ChatWindow();
+
+    ChatManager manager(leftPanel);
+    ChatWindow* rightPanel = new ChatWindow(&manager);
+    QObject::connect(leftPanel, &QListWidget::itemClicked, [rightPanel](QListWidgetItem* item) {
+        if (item) {
+            ChatMetadata chatData = item->data(Qt::UserRole).value<ChatMetadata>();
+            rightPanel->clearAndDisplayChat(chatData);
+        }
+    });
+    QObject::connect(leftPanel, &QListWidget::currentItemChanged,
+                    [rightPanel](QListWidgetItem* current, QListWidgetItem* previous) {
+        if (current) {
+            ChatMetadata chatData = current->data(Qt::UserRole).value<ChatMetadata>();
+            rightPanel->clearAndDisplayChat(chatData);
+        }
+    });
+
+
 
     splitter->addWidget(leftPanel);
     splitter->addWidget(rightPanel);
@@ -51,7 +67,6 @@ int main(int argc, char* argv[]){
     QVBoxLayout* layout = new QVBoxLayout;
     layout->addWidget(splitter);
     layout->setContentsMargins(0, 0, 0, 0);
-    window.setLayout(layout);
     window.setCentralWidget(splitter);
 
 

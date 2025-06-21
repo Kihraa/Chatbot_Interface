@@ -6,7 +6,8 @@ index
 api_key.txt
 # Prerequisites
 *.d
-
+chats
+.zed
 # Compiled Object files
 *.slo
 *.lo

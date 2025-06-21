@@ -1,29 +1,38 @@
+#pragma once
 #include <QObject>
 #include <QDateTime>
-
+#include <QListWidget>
+#include <QList>
+#include <cstddef>
+struct ChatMetadata {
+    int id;
+    QString title;
+    QDateTime created;
+    QDateTime lastModified;
+};
+Q_DECLARE_METATYPE(ChatMetadata)
 class ChatManager : public QObject {
     Q_OBJECT
 
 public:
-    struct ChatMetadata {
-        QString id;
-        QString title;
-        QDateTime created;
-        QDateTime lastModified;
-        int messageCount;
-    };
 
-    ChatManager(const QString& chatsDirectory = "./chats");
 
-    QList<ChatMetadata> loadChatList();
-    QString createNewChat(const QString& title = "New Chat");
-    bool saveChat(const QString& chatId, const QJsonArray& messages, const QString& model);
-    QJsonArray loadChatMessages(const QString& chatId);
-    bool deleteChat(const QString& chatId);
-    bool updateChatTitle(const QString& chatId, const QString& newTitle);
+
+
+    ChatManager(QListWidget* list,const QString& chatsDirectory = "../chats");
+    ~ChatManager();
+    void changeChats(int idToChangeTo);
+    ChatMetadata addNewChatToSideBar(const QString& title = "New Chat");
+    void saveChatToDisk(ChatMetadata data, const QJsonArray& messages);
+    QJsonArray getChatFromDisk(const int chatId);
+    void deleteChat(const int chatId);
+    void updateChatTitle(const int chatId, const QString& newTitle);
+    ChatMetadata getChatData(const int chatId);
 
 private:
+    QList<ChatMetadata> m_chatList;
+    QListWidget* chatList;
+    int m_currentId;
     QString m_chatsDirectory;
-    void ensureDirectoryExists();
-    void updateMetadata();
+    void writeChatsToDisk();
 };
